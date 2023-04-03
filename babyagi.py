@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 # Set API Keys
-openai.api_key ="YOUR_API_KEY_HERE"
+openai.api_key ="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"
 
 # Set Variables
 YOUR_TABLE_NAME = "test-table"
@@ -31,12 +31,9 @@ if os.path.exists(index_file):
 else:
     index = faiss.IndexFlatL2(dimension)
     index = faiss.IndexIDMap(index)
-
-
-
+    
 # Task list
 task_list = deque([])
-
 
 def add_task(task: Dict):
     task_list.append(task)
@@ -53,7 +50,6 @@ def task_creation_agent(objective: str, result: Dict, task_description: str, tas
                                         top_p=1, frequency_penalty=0, presence_penalty=0)
     new_tasks = response.choices[0].text.strip().split('\n')
     return [{"task_name": task_name} for task_name in new_tasks]
-
 
 def prioritization_agent(this_task_id: int):
     global task_list
@@ -75,17 +71,17 @@ def prioritization_agent(this_task_id: int):
             task_list.append({"task_id": task_id, "task_name": task_name})
 
 def execution_agent(objective: str, task: str) -> str:
-    context = context_agent(query=objective, n=5)
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"You are an AI who performs one task based on the following objective: {objective}. Your task: {task}\nResponse:",
-        temperature=0.7,
-        max_tokens=2000,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0
+    messages = [
+        {"role": "system", "content": "You are an AI who performs one task based on the following objective: " + objective},
+        {"role": "user", "content": task}
+    ]
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages
     )
-    return response.choices[0].text.strip()
+
+    return response.choices[0].message['content'].strip()
 
 def context_agent(query: str, n: int):
     query_embedding = np.array(get_ada_embedding(query)).reshape(1, -1)  # Convert to NumPy array and reshape
@@ -128,7 +124,6 @@ while True:
 
     # Save the index to the file
     faiss.write_index(index, index_file)
-
 
     # Step 3: Create new tasks and reprioritize task list
     new_tasks = task_creation_agent(OBJECTIVE, enriched_result, task["task_name"], [t["task_name"] for t in task_list])
