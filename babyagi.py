@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 # Set API Keys
-openai.api_key ="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"
+openai.api_key ="YOURAPITKEYHERE"
 
 # Set Variables
 YOUR_TABLE_NAME = "test-table"
