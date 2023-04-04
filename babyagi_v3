@@ -7,7 +7,7 @@ from collections import deque
 from typing import Dict, List
 
 # Set API Key
-openai.api_key = "sk-YOURKEY"
+openai.api_key = "sk-YOURAPITKEY"
 
 # Set Variables
 YOUR_TABLE_NAME = "test-table"
@@ -47,7 +47,7 @@ def ask_direct_question(system_message: str, user_message: str, n_faiss_results:
     # Query the FAISS index
     query_embedding = get_ada_embedding(user_message).reshape(1, -1)
     results = index.search(query_embedding, n_faiss_results)
-
+    
     # Format the FAISS results to be included in the system message or user message
     faiss_results_text = "\n".join([f"{res[0]}: {res[1]:.2f}" for res in np.array(results).reshape(-1, 2)])
 
@@ -101,5 +101,8 @@ def execute_main_loop():
     # Save the index to the file
     faiss.write_index(index, index_file)
 
-# Run the main loop
-execute_main_loop()
+if __name__ == "__main__":
+    execute_main_loop()
+    new_objective = input("Enter new objective (leave empty to use the current objective): ")
+    if new_objective:
+        OBJECTIVE = new_objective
