@@ -4,6 +4,11 @@ import babyagi_v3 as main
 import speech_recognition as sr
 import pyttsx3
 import threading
+import upload_documents
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 
 def on_submit():
     task_name = task_input.get()
@@ -34,11 +39,10 @@ def on_ask_question():
     text_answer.insert(tk.END, answer)
 
 def on_upload():
-    file_path = filedialog.askopenfilename(filetypes=[("PDF, Text, and CSV files", "*.pdf;*.txt;*.csv")])
-    namespace = "your_namespace_here"  # Replace this with your desired namespace
-    if file_path:
-        upload_documents.process_file(file_path, namespace)
-        messagebox.showinfo("Information", "File uploaded and embeddings added to the FAISS index")
+    file_path = filedialog.askopenfilename()
+    document_name = os.path.splitext(os.path.basename(file_path))[0]
+    upload_documents.process_file(file_path, document_name)
+    messagebox.showinfo("Information", "File uploaded and embeddings added to the FAISS index")
 
 def threaded_listen_for_wake_word(engine):
     thread = threading.Thread(target=listen_for_wake_word, args=(engine,))
@@ -114,11 +118,19 @@ app_style = ttk.Style()
 notebook = ttk.Notebook(root)
 frame_main = ttk.Frame(notebook)
 frame_questions = ttk.Frame(notebook)
+frame_upload = ttk.Frame(notebook)
 
 notebook.add(frame_main, text="Main")
 notebook.add(frame_questions, text="Ask Questions")
+notebook.add(frame_upload, text="Upload Documents")
 
 notebook.pack(expand=1, fill="both")
+
+label_upload = ttk.Label(frame_upload, text="Upload a document:")
+label_upload.grid(column=0, row=0, padx=10, pady=10, sticky="w")
+
+btn_upload = ttk.Button(frame_upload, text="Browse", command=on_upload)
+btn_upload.grid(column=1, row=0, padx=10, pady=10)
 
 # Initialize the text-to-speech engine
 engine = init_engine()
@@ -126,7 +138,7 @@ voices = engine.getProperty('voices')
 voice_id = 0
 
 # Start listening for the wake word in a separate thread
-root.after(100, lambda: listen_for_wake_word(engine))
+root.after(100, lambda: threaded_listen_for_wake_word(engine))
 
 # Main tab
 label_objective = tk.Label(frame_main, text="Enter new objective (leave empty to use the current objective):")
@@ -186,3 +198,8 @@ btn_change_voice = tk.Button(root, text="Change Voice", command=change_voice)
 btn_change_voice.pack(side=tk.BOTTOM, pady=10)
 
 root.mainloop()
+
+
+
+
+
