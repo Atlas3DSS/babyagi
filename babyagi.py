@@ -7,11 +7,11 @@ import os
 import numpy as np
 
 # Set API Keys
-openai.api_key ="YOURAPITKEYHERE"
+openai.api_key ="YOURAPITKEY"
 
 # Set Variables
 YOUR_TABLE_NAME = "test-table"
-OBJECTIVE = "Improve the well-being of your host."
+OBJECTIVE = "Enhance the human host's cognitive capabilities."
 YOUR_FIRST_TASK = "Develop a task list."
 
 # Print OBJECTIVE
