@@ -1,16 +1,19 @@
 import os
-import PyPDF2
+from PyPDF2 import PdfReader
 import pandas as pd
 import openai
 import babyagi_v3 as main
+import numpy as np
+from dotenv import load_dotenv
+load_dotenv()
 
 def read_pdf(file_path):
-    pdf = PyPDF2.PdfFileReader(file_path)
-    num_pages = pdf.numPages
+    pdf = PdfReader(file_path)
+    num_pages = len(pdf.pages)
     text = ""
     for i in range(num_pages):
-        page = pdf.getPage(i)
-        text += page.extractText()
+        page = pdf.pages[i]
+        text += page.extract_text()
     return text
 
 def read_txt(file_path):
@@ -22,7 +25,7 @@ def read_csv(file_path):
     return df.to_string(index=False)
 
 def get_embeddings(text):
-    openai.api_key = "sk-YOUR_OPEN_AI_KEY"
+    openai.api_key = os.environ["OPENAI_API_KEY"]
     prompt = f"Embed this text: {text}"
     response = openai.Completion.create(
         engine="text-davinci-002",
@@ -32,10 +35,34 @@ def get_embeddings(text):
         stop=None,
         temperature=0.0,
     )
+    print("Response:", response)  # Debugging line
+    embedding_text = response.choices[0].text.strip()
+    print("Embedding text:", embedding_text)  # Debugging line
+    return embedding_text
+    embeddings = response.choices[0].text.strip()
+    embedding_vector = np.array(embeddings.split(), dtype=np.float32)
 
-    return response.choices[0].text.strip()
+    return embedding_vector
 
-def process_file(file_path):
+
+def split_text(text, max_length=4000):
+    paragraphs = text.split('\n')
+    chunks = []
+    current_chunk = ""
+    
+    for paragraph in paragraphs:
+        if len(current_chunk) + len(paragraph) <= max_length:
+            current_chunk += paragraph + "\n"
+        else:
+            chunks.append(current_chunk)
+            current_chunk = paragraph + "\n"
+    
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    return chunks
+
+def process_file(file_path: str, document_name: int):
     _, ext = os.path.splitext(file_path)
     if ext == '.pdf':
         text = read_pdf(file_path)
@@ -46,5 +73,13 @@ def process_file(file_path):
     else:
         raise ValueError("Unsupported file format")
 
-    embedding = get_embeddings(text)
-    main.add_embedding_to_faiss_index(embedding, namespace)
+    text_chunks = split_text(text)
+    processed_file_path = os.path.join(os.path.dirname(file_path), "processed_text.txt")
+
+    with open(processed_file_path, "w", encoding="utf-8") as processed_file:
+        for chunk in text_chunks:
+            processed_file.write(chunk)
+            processed_file.write("\n\n")
+            embedding = get_embeddings(chunk)
+            embedding_vector = np.array(embedding.split(), dtype=np.float32)
+            main.add_embedding_to_faiss_index(embedding_vector, document_name)
