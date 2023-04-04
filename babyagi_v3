@@ -7,7 +7,7 @@ from collections import deque
 from typing import Dict, List
 
 # Set API Key
-openai.api_key = "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"
+openai.api_key = "sk-YOURKEY"
 
 # Set Variables
 YOUR_TABLE_NAME = "test-table"
