@@ -1,0 +1,50 @@
+import os
+import PyPDF2
+import pandas as pd
+import openai
+import babyagi_v3 as main
+
+def read_pdf(file_path):
+    pdf = PyPDF2.PdfFileReader(file_path)
+    num_pages = pdf.numPages
+    text = ""
+    for i in range(num_pages):
+        page = pdf.getPage(i)
+        text += page.extractText()
+    return text
+
+def read_txt(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()
+
+def read_csv(file_path):
+    df = pd.read_csv(file_path)
+    return df.to_string(index=False)
+
+def get_embeddings(text):
+    openai.api_key = "sk-YOUR_OPEN_AI_KEY"
+    prompt = f"Embed this text: {text}"
+    response = openai.Completion.create(
+        engine="text-davinci-002",
+        prompt=prompt,
+        max_tokens=1024,
+        n=1,
+        stop=None,
+        temperature=0.0,
+    )
+
+    return response.choices[0].text.strip()
+
+def process_file(file_path):
+    _, ext = os.path.splitext(file_path)
+    if ext == '.pdf':
+        text = read_pdf(file_path)
+    elif ext == '.txt':
+        text = read_txt(file_path)
+    elif ext == '.csv':
+        text = read_csv(file_path)
+    else:
+        raise ValueError("Unsupported file format")
+
+    embedding = get_embeddings(text)
+    main.add_embedding_to_faiss_index(embedding, namespace)
