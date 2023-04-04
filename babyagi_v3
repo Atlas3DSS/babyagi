@@ -5,9 +5,12 @@ import os
 import numpy as np
 from collections import deque
 from typing import Dict, List
+import dotenv 
+from dotenv import load_dotenv
+load_dotenv()
 
 # Set API Key
-openai.api_key = "sk-YOURAPITKEY"
+openai.api_key = os.environ["OPENAI_API_KEY"]
 
 # Set Variables
 YOUR_TABLE_NAME = "test-table"
@@ -42,6 +45,15 @@ def get_ada_embedding(text: str) -> np.ndarray:
     text = text.replace("\n", " ")
     response = openai.Embedding.create(input=[text], model="text-embedding-ada-002")
     return np.array(response["data"][0]["embedding"])
+
+def add_embedding_to_faiss_index(embedding, namespace):
+    global index
+    if isinstance(embedding, str):
+        print(f"Error: Embedding should be a numpy array, but received a string: {embedding}")
+        return
+    embedding_vector = embedding.reshape(1, dimension)
+    index.add_with_ids(embedding_vector, np.array([namespace]))
+
 
 def ask_direct_question(system_message: str, user_message: str, n_faiss_results: int = 3) -> str:
     # Query the FAISS index
