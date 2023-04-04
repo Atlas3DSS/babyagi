@@ -1,0 +1,105 @@
+import openai
+import faiss
+import time
+import os
+import numpy as np
+from collections import deque
+from typing import Dict, List
+
+# Set API Key
+openai.api_key = "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"
+
+# Set Variables
+YOUR_TABLE_NAME = "test-table"
+OBJECTIVE = "Enhance the human host in all ways possible, psychological, physiological, emotional, spiritual."
+YOUR_FIRST_TASK = "Develop a task list."
+
+# Print OBJECTIVE
+print("\033[96m\033[1m" + "\n*****OBJECTIVE*****\n" + "\033[0m\033[0m")
+print(OBJECTIVE)
+
+# Initialize FAISS index and task list
+dimension = 1536
+db_folder = "databases"
+index_file = os.path.join(db_folder, "faiss_index.bin")
+task_list = deque([])
+
+# Create and load FAISS index
+if not os.path.exists(db_folder):
+    os.makedirs(db_folder)
+
+if os.path.exists(index_file):
+    index = faiss.read_index(index_file)
+else:
+    index = faiss.IndexFlatL2(dimension)
+    index = faiss.IndexIDMap(index)
+
+# Define helper functions
+def add_task(task: Dict):
+    task_list.append(task)
+
+def get_ada_embedding(text: str) -> np.ndarray:
+    text = text.replace("\n", " ")
+    response = openai.Embedding.create(input=[text], model="text-embedding-ada-002")
+    return np.array(response["data"][0]["embedding"])
+
+def ask_direct_question(system_message: str, user_message: str, n_faiss_results: int = 3) -> str:
+    # Query the FAISS index
+    query_embedding = get_ada_embedding(user_message).reshape(1, -1)
+    results = index.search(query_embedding, n_faiss_results)
+
+    # Format the FAISS results to be included in the system message or user message
+    faiss_results_text = "\n".join([f"{res[0]}: {res[1]:.2f}" for res in np.array(results).reshape(-1, 2)])
+
+    # Include the FAISS results in the system message (or user message)
+    system_message += f"\n\nRelevant information from the FAISS index:\n{faiss_results_text}"
+
+    messages = [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": user_message}
+    ]
+    response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    return response.choices[0].message['content'].strip()
+
+# Define main function
+def execute_main_loop():
+    global task_id_counter
+    task_id_counter = 1
+
+    # Add the first task
+    first_task = {"task_id": 1, "task_name": YOUR_FIRST_TASK}
+    add_task(first_task)
+
+    # Main loop
+    for _ in range(10):
+        # Pull the first task
+        task = task_list.popleft()
+        print("\033[92m\033[1m" + "\n*****NEXT TASK*****\n" + "\033[0m\033[0m")
+        print(str(task['task_id']) + ": " + task['task_name'])
+
+                # Send to execution function to complete the task based on the context
+        result = ask_direct_question("You are an AI who performs one task based on the following objective: " + OBJECTIVE, task["task_name"])
+        this_task_id = int(task["task_id"])
+        print("\033[93m\033[1m" + "\n*****TASK RESULT*****\n" + "\033[0m\033[0m")
+        print(result)
+
+        # Step 2: Enrich result and store in FAISS
+        enriched_result = {'data': result}  # This is where you should enrich the result if needed
+        result_id = int(task['task_id'])
+        embedding = get_ada_embedding(enriched_result['data']).reshape(1, -1)
+        index.add_with_ids(embedding, np.array([result_id]))
+
+        # Step 3: Create new tasks and reprioritize task list
+        new_tasks = ask_direct_question("You are a task creation AI that uses the result of an execution agent to create new tasks with the following objective: " + OBJECTIVE, result)
+        new_tasks = [{"task_name": task_name.strip()} for task_name in new_tasks.split('\n') if task_name.strip()]
+
+        for new_task in new_tasks:
+            task_id_counter += 1
+            new_task.update({"task_id": task_id_counter})
+            add_task(new_task)
+
+    # Save the index to the file
+    faiss.write_index(index, index_file)
+
+# Run the main loop
+execute_main_loop()
